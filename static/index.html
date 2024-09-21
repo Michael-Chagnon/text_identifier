@@ -38,21 +38,30 @@
         });
 
         document.getElementById('predict').addEventListener('click', async () => {
-            const dataUrl = canvas.toDataURL('image/png'); // Get canvas image as a base64 URL
-            const blob = await fetch(dataUrl).then(res => res.blob()); // Convert to Blob
+            const dataUrl = canvas.toDataURL('image/png'); 
+            const blob = await fetch(dataUrl).then(res => res.blob());
 
-            // Prepare form data
             const formData = new FormData();
             formData.append('image', blob, 'digit.png');
 
-            // Send the image to the backend
-            const response = await fetch('/predict', {
-                method: 'POST',
-                body: formData
-            });
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
 
-            const result = await response.json();
-            document.getElementById('result').innerText = result.digit;
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error:', errorText);
+                    document.getElementById('result').innerText = 'Error predicting digit.';
+                    return;
+                }
+
+                const result = await response.json();
+                document.getElementById('result').innerText = result.prediction[0]; // Adjust this line as needed
+            } catch (error) {
+                console.error('Fetch error:', error);
+            }
         });
     </script>
 </body>

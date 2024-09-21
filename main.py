@@ -1,28 +1,30 @@
-from flask import Flask, request, jsonify
+import os
+import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 import tensorflow as tf
-from PIL import Image
-import io
 
-app = Flask(__name__)
+mnist = tf.keras.datasets.mnist
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-# Load your trained model
-model = tf.keras.models.load_model('handwritten.model')
+x_train = tf.keras.utils.normalize(x_train, axis=1)
+x_test = tf.keras.utils.normalize(x_test, axis=1)
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    # Get the image from the request
-    file = request.files['image']
-    img = Image.open(io.BytesIO(file.read())).convert('L')  # Convert to grayscale
-    img = img.resize((28, 28))  # Resize to match the input shape
-    img = np.array(img) / 255.0  # Normalize
-    img = img.reshape(1, 28, 28, 1)  # Reshape to match model input
-    
-    # Predict the digit
-    prediction = model.predict(img)
-    predicted_digit = np.argmax(prediction)
+# model = tf.keras.models.Sequential()
+# model.add(tf.keras.layers.Flatten (input_shape=(28, 28)))
+# model.add(tf.keras.layers.Dense (128, activation='relu'))
+# model.add(tf.keras.layers.Dense (128, activation='relu'))
+# model.add(tf.keras.layers.Dense (10, activation='softmax'))
 
-    return jsonify({'digit': int(predicted_digit)})
+# model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# model.fit(x_train, y_train, epochs=3)
+
+# model.save('hand_written.keras')
+
+model = tf.keras.models.load_model('hand_written.keras')
+
+loss, accuracy = model.evaluate(x_test, y_test)
+
+print(loss)
+print(accuracy)

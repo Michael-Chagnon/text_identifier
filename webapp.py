@@ -13,7 +13,7 @@ CORS(app)
 # app = Flask(__name__, static_folder='static')
 
 # Load the trained model
-model = tf.keras.models.load_model('hand_written.keras')
+model = tf.keras.models.load_model('hand_written2.0.keras')
 
 from PIL import Image
 

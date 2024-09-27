@@ -48,11 +48,13 @@ def predict():
     binary_image.save('binary_image.png')  # Save binary image for debugging
 
     # Normalize the image
-    input_image = np.array(binary_image) / 255.0  # Normalize
-    input_image = input_image.reshape(1, 28, 28, 1)  # Reshape for model input
+    # input_image = np.array(binary_image) / 255.0  # Normalize
+    # input_image = input_image.reshape(1, 28, 28, 1)  # Reshape for model input
+    input_image = np.invert(np.array([binary_image]))
 
     # Predict using the model
     prediction = model.predict(input_image)
+
 
     return jsonify({'prediction': prediction.argmax(axis=-1).tolist()})
 

@@ -1,16 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Draw a Digit</title>
-</head>
-<body>
-    <h1>Draw a Digit</h1>
+    <head>
+        <meta charset="UTF-8">
+        <link href="static/css/style.css" rel="stylesheet" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Draw a Digit</title>
+    </head>
+    <body>
+        <h1>Draw a Digit</h1>
     <canvas id="canvas" width="280" height="280" style="border:1px solid #000;"></canvas>
-    <button id="clear">Clear</button>
-    <button id="predict">Predict</button>
+
+    <!-- Button Container to align buttons horizontally -->
+    <div class="button-container">
+        <button id="clear">Clear</button>
+        <button id="predict">Predict</button>
+    </div>
+
     <p>Predicted Digit: <span id="result"></span></p>
+
+    <!-- Header and Chart Section -->
+    <div class="confidence-bar" id="confidence-bar">
+        <h2>Prediction Confidence</h2>
+        <div id="confidence-container">
+            <div class="bar" id="bar-0"></div>
+            <div class="bar" id="bar-1"></div>
+            <div class="bar" id="bar-2"></div>
+            <div class="bar" id="bar-3"></div>
+            <div class="bar" id="bar-4"></div>
+            <div class="bar" id="bar-5"></div>
+            <div class="bar" id="bar-6"></div>
+            <div class="bar" id="bar-7"></div>
+            <div class="bar" id="bar-8"></div>
+            <div class="bar" id="bar-9"></div>
+        </div>
+        <div id="confidence-labels">
+            <span class="bar-label">0</span>
+            <span class="bar-label">1</span>
+            <span class="bar-label">2</span>
+            <span class="bar-label">3</span>
+            <span class="bar-label">4</span>
+            <span class="bar-label">5</span>
+            <span class="bar-label">6</span>
+            <span class="bar-label">7</span>
+            <span class="bar-label">8</span>
+            <span class="bar-label">9</span>
+        </div>
+    </div>
+
+    <div id="history-container">
+        <h2>Prediction History</h2>
+        <div id="history-content"></div>
+    </div>
+    
+            
+
 
     <script>
         const canvas = document.getElementById('canvas');
@@ -38,31 +81,91 @@
         });
 
         document.getElementById('predict').addEventListener('click', async () => {
-            const dataUrl = canvas.toDataURL('image/png'); 
-            const blob = await fetch(dataUrl).then(res => res.blob());
+    const dataUrl = canvas.toDataURL('image/png');
+    const blob = await fetch(dataUrl).then(res => res.blob());
 
-            const formData = new FormData();
-            formData.append('image', blob, 'digit.png');
+    const formData = new FormData();
+    formData.append('image', blob, 'digit.png');
 
-            try {
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Error:', errorText);
-                    document.getElementById('result').innerText = 'Error predicting digit.';
-                    return;
-                }
-
-                const result = await response.json();
-                document.getElementById('result').innerText = result.prediction[0]; // Adjust this line as needed
-            } catch (error) {
-                console.error('Fetch error:', error);
-            }
+    try {
+        const response = await fetch('/predict', {
+            method: 'POST',
+            body: formData
         });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error:', errorText);
+            document.getElementById('result').innerText = 'Error predicting digit.';
+            return;
+        }
+
+        const result = await response.json();
+        const prediction = result.prediction[0];
+        const confidenceScores = result.confidence_scores;
+
+        // Update predicted result
+        document.getElementById('result').innerText = prediction;
+
+        // Update the confidence bars
+        confidenceScores.forEach((score, index) => {
+            const bar = document.getElementById(`bar-${index}`);
+            bar.style.height = `${Math.max(score * 100, 2)}%`;
+        });
+
+        // Create history item
+        const historyItem = document.createElement('div');
+        historyItem.classList.add('history-item');
+        
+        // Create image element
+        const img = document.createElement('img');
+        img.src = dataUrl; // Use the drawn image
+        img.alt = `Drawn digit: ${prediction}`;
+        
+        // Create prediction text element
+        const predictionText = document.createElement('span');
+        predictionText.innerText = `Predicted: ${prediction}`;
+
+        // Append image and text to history item
+        historyItem.appendChild(img);
+        historyItem.appendChild(predictionText);
+
+        // Prepend new history item to the top of the list
+        const historyContent = document.getElementById('history-content');
+        historyContent.insertBefore(historyItem, historyContent.firstChild);
+
+    } catch (error) {
+        console.error('Fetch error:', error);
+    }
+});
+
+        function addPredictionToHistory(imageUrl, prediction) {
+            const historyContent = document.getElementById('history-content');
+
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+
+            const img = document.createElement('img');
+            img.src = imageUrl;
+
+            const predictionText = document.createElement('span');
+            predictionText.innerText = `Prediction: ${prediction}`;
+
+            historyItem.appendChild(img);
+            historyItem.appendChild(predictionText);
+
+            historyContent.appendChild(historyItem);
+        }
+
+        function updateConfidenceBars(confidenceScores) {
+            for (let i = 0; i < confidenceScores.length; i++) {
+                const bar = document.getElementById(`bar-${i}`);
+                const confidence = confidenceScores[i] * 100; // Convert to percentage
+                bar.style.height = `${confidence}px`; // Set the height based on confidence
+                bar.innerText = `${confidence.toFixed(2)}%`; // Display percentage with two decimal places
+            }
+        }
+
     </script>
 </body>
 </html>

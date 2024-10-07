@@ -6,6 +6,8 @@ from PIL import Image, ImageOps
 import io
 from flask_cors import CORS
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import tensorflow.keras.backend as K
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -17,49 +19,37 @@ model = tf.keras.models.load_model('hand_written2.0.keras')
 
 from PIL import Image
 
-# @app.route('/predict', methods=['POST'])
-# def predict():
-#     if 'image' not in request.files:
-#         return jsonify({'error': 'No image provided'}), 400
+def get_grad_cam_heatmap(model, input_image, predicted_class):
+    # Ensure the model runs at least once to initialize the outputs
+    _ = model.predict(input_image)
 
-#     file = request.files['image']
-    
-#     # Open the image
-#     image = Image.open(file.stream)
-#     image.save('original_image_before_grayscale.png')  # Save original for debugging
+    # Create the Grad-CAM model from the conv2d_1 layer to the output
+    grad_model = tf.keras.models.Model(
+        inputs=[model.inputs],
+        outputs=[model.get_layer('conv2d').output, model.output]  # Change 'conv2d_1' based on the layer you want
+    )
 
-#     # Handle transparency (if any) before converting to grayscale
-#     if image.mode == 'RGBA':  # Check if image has alpha channel
-#         # Create a white background and paste the image onto it (removing transparency)
-#         background = Image.new("RGB", image.size, (255, 255, 255))
-#         background.paste(image, mask=image.split()[3])  # Paste using alpha channel as mask
-#         image = background
+    with tf.GradientTape() as tape:
+        # Forward pass through the grad_model
+        conv_outputs, predictions = grad_model(input_image)
+        loss = predictions[:, predicted_class]  # Loss for the predicted class
 
-#     # Convert to grayscale
-#     grayscale_image = image.convert('L')  # Convert to grayscale
+    # Calculate the gradients of the loss with respect to the conv layer outputs
+    grads = tape.gradient(loss, conv_outputs)
 
-#     # Resize with LANCZOS filter to improve quality
-#     resized_image = grayscale_image.resize((28, 28), Image.Resampling.LANCZOS)
-#     resized_image.save('resized_image.png')  # Save resized image for debugging
+    # Pool the gradients over all the axes
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
-#     # Optionally apply thresholding or binarization to clean up the image
-#     threshold = 128
-#     binary_image = resized_image.point(lambda p: p > threshold and 255)  # Binarization
-#     binary_image.save('binary_image.png')  # Save binary image for debugging
+    # Multiply each feature map in the convolutional layer output by the pooled gradients
+    conv_outputs = conv_outputs[0]
+    heatmap = tf.reduce_sum(tf.multiply(pooled_grads, conv_outputs), axis=-1)
 
-#     # Normalize the image
-#     # input_image = np.array(binary_image) / 255.0  # Normalize
-#     # input_image = input_image.reshape(1, 28, 28, 1)  # Reshape for model input
-#     input_image = np.invert(np.array([binary_image]))
+    # Apply ReLU to remove negative values and normalize the heatmap
+    heatmap = tf.maximum(heatmap, 0)
+    heatmap /= tf.math.reduce_max(heatmap)
 
-#     # Predict using the model
-#     prediction = model.predict(input_image)
+    return heatmap.numpy()
 
-
-#     return jsonify({
-#         'prediction': prediction.argmax(axis=-1).tolist(),
-#         'confidence_scores': prediction.tolist()[0]
-#         })
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -84,16 +74,30 @@ def predict():
     # Prepare image for model input
     input_image = np.invert(np.array([binary_image]))  # Invert colors for model input
     input_image = input_image.astype('float32') / 255.0  # Normalize
+    input_image = input_image.reshape((1, 28, 28, 1))  # Reshape for model
 
     # Make predictions
     prediction = model.predict(input_image)
 
-    # Log the prediction to check output
-    print("Model Prediction:", prediction)
+    # Get the class with the highest prediction score
+    predicted_class = np.argmax(prediction, axis=-1)[0]
+
+    # Generate Grad-CAM heatmap
+    heatmap = get_grad_cam_heatmap(model, input_image, predicted_class)
+
+    # Create the heatmap visualization
+    plt.imshow(binary_image, cmap='gray')  # Display the original image
+    plt.imshow(heatmap, cmap='jet', alpha=0.5)  # Overlay the heatmap
+    plt.axis('off')
+
+    # Save the heatmap image
+    heatmap_path = 'static/heatmap.png'
+    plt.savefig(heatmap_path, bbox_inches='tight', pad_inches=0)
 
     return jsonify({
-        'prediction': prediction.argmax(axis=-1).tolist(),
-        'confidence_scores': prediction[0].tolist()  # Ensure correct extraction of scores
+        'prediction': predicted_class,
+        'confidence_scores': prediction[0].tolist(),
+        'heatmap_url': heatmap_path  # Return the heatmap image path
     })
 
 

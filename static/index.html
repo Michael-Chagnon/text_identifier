@@ -17,6 +17,7 @@
     </div>
 
     <p>Predicted Digit: <span id="result"></span></p>
+    <img id="heatmap" src="" alt="Grad-CAM Heatmap" style="display:none; max-width: 280px;" />
 
     <!-- Header and Chart Section -->
     <div class="confidence-bar" id="confidence-bar">
@@ -81,63 +82,48 @@
         });
 
         document.getElementById('predict').addEventListener('click', async () => {
-    const dataUrl = canvas.toDataURL('image/png');
-    const blob = await fetch(dataUrl).then(res => res.blob());
+        const dataUrl = canvas.toDataURL('image/png');
+        const blob = await fetch(dataUrl).then(res => res.blob());
 
-    const formData = new FormData();
-    formData.append('image', blob, 'digit.png');
+        const formData = new FormData();
+        formData.append('image', blob, 'digit.png');
 
-    try {
-        const response = await fetch('/predict', {
-            method: 'POST',
-            body: formData
-        });
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                body: formData
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Error:', errorText);
-            document.getElementById('result').innerText = 'Error predicting digit.';
-            return;
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error:', errorText);
+                document.getElementById('result').innerText = 'Error predicting digit.';
+                return;
+            }
+
+            const result = await response.json();
+            const prediction = result.prediction;
+            const confidenceScores = result.confidence_scores;
+            const heatmapUrl = result.heatmap_url;
+
+            // Update predicted result
+            document.getElementById('result').innerText = prediction;
+
+            // Show the Grad-CAM heatmap
+            const heatmapImg = document.getElementById('heatmap');
+            heatmapImg.src = heatmapUrl;
+            heatmapImg.style.display = 'block';
+
+            // Update the confidence bars
+            confidenceScores.forEach((score, index) => {
+                const bar = document.getElementById(`bar-${index}`);
+                bar.style.height = `${Math.max(score * 100, 2)}%`;
+            });
+
+        } catch (error) {
+            console.error('Fetch error:', error);
         }
-
-        const result = await response.json();
-        const prediction = result.prediction[0];
-        const confidenceScores = result.confidence_scores;
-
-        // Update predicted result
-        document.getElementById('result').innerText = prediction;
-
-        // Update the confidence bars
-        confidenceScores.forEach((score, index) => {
-            const bar = document.getElementById(`bar-${index}`);
-            bar.style.height = `${Math.max(score * 100, 2)}%`;
-        });
-
-        // Create history item
-        const historyItem = document.createElement('div');
-        historyItem.classList.add('history-item');
-        
-        // Create image element
-        const img = document.createElement('img');
-        img.src = dataUrl; // Use the drawn image
-        img.alt = `Drawn digit: ${prediction}`;
-        
-        // Create prediction text element
-        const predictionText = document.createElement('span');
-        predictionText.innerText = `Predicted: ${prediction}`;
-
-        // Append image and text to history item
-        historyItem.appendChild(img);
-        historyItem.appendChild(predictionText);
-
-        // Prepend new history item to the top of the list
-        const historyContent = document.getElementById('history-content');
-        historyContent.insertBefore(historyItem, historyContent.firstChild);
-
-    } catch (error) {
-        console.error('Fetch error:', error);
-    }
-});
+    });
 
         function addPredictionToHistory(imageUrl, prediction) {
             const historyContent = document.getElementById('history-content');

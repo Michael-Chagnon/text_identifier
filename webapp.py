@@ -8,6 +8,7 @@ from flask_cors import CORS
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import tensorflow.keras.backend as K
+import uuid
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -19,36 +20,59 @@ model = tf.keras.models.load_model('hand_written2.0.keras')
 
 from PIL import Image
 
-def get_grad_cam_heatmap(model, input_image, predicted_class):
-    # Ensure the model runs at least once to initialize the outputs
-    _ = model.predict(input_image)
+# def preprocess_image(input_image):
+#     print(f"Original image shape: {input_image.shape}")
+    
+#     if len(input_image.shape) == 2:  # If it's a grayscale image
+#         input_image = np.expand_dims(input_image, axis=-1)  # Add channel dimension
+#         print(f"After adding channel dimension: {input_image.shape}")
+    
+#     input_image = np.expand_dims(input_image, axis=0)  # Add batch dimension
+#     print(f"After adding batch dimension: {input_image.shape}")
+    
+#     # Remove the extra batch dimension if it exists
+#     if len(input_image.shape) == 5:
+#         input_image = np.squeeze(input_image, axis=0)
+#         print(f"After removing extra batch dimension: {input_image.shape}")
+    
+#     return input_image
 
-    # Create the Grad-CAM model from the conv2d_1 layer to the output
-    grad_model = tf.keras.models.Model(
-        inputs=[model.inputs],
-        outputs=[model.get_layer('conv2d').output, model.output]  # Change 'conv2d_1' based on the layer you want
-    )
+# def get_grad_cam_heatmap(model, input_image, predicted_class):
+#     # Call the model with a dummy input to ensure layers are initialized
+#     _ = model.predict(tf.zeros((1, 28, 28, 1)))  # Dummy input
+    
+#     # Check and debug available layers
+#     for layer in model.layers:
+#         print(layer.name)  # Print layer names to confirm 'conv2d_1' exists
 
-    with tf.GradientTape() as tape:
-        # Forward pass through the grad_model
-        conv_outputs, predictions = grad_model(input_image)
-        loss = predictions[:, predicted_class]  # Loss for the predicted class
+#     # Create a new model for Grad-CAM
+#     grad_model = tf.keras.models.Model(
+#         inputs=model.inputs,
+#         outputs=[model.get_layer('conv2d_1').output, model.output]
+#     )
 
-    # Calculate the gradients of the loss with respect to the conv layer outputs
-    grads = tape.gradient(loss, conv_outputs)
+#     with tf.GradientTape() as tape:
+#         # Forward pass
+#         conv_output, predictions = grad_model(input_image)
+#         loss = predictions[:, predicted_class]
+    
+#     # Gradient of the predicted class wrt conv layer output
+#     grads = tape.gradient(loss, conv_output)
+    
+#     # Compute the channel-wise mean of the gradients
+#     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+    
+#     # Multiply each channel in the feature map array by 'how important this channel is' with respect to the class
+#     conv_output = conv_output[0]
+#     heatmap = conv_output @ pooled_grads[..., tf.newaxis]
+#     heatmap = tf.squeeze(heatmap)
 
-    # Pool the gradients over all the axes
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+#     # Apply ReLU to discard negative values
+#     heatmap = tf.maximum(heatmap, 0) / tf.math.reduce_max(heatmap)
 
-    # Multiply each feature map in the convolutional layer output by the pooled gradients
-    conv_outputs = conv_outputs[0]
-    heatmap = tf.reduce_sum(tf.multiply(pooled_grads, conv_outputs), axis=-1)
+#     return heatmap.numpy()
 
-    # Apply ReLU to remove negative values and normalize the heatmap
-    heatmap = tf.maximum(heatmap, 0)
-    heatmap /= tf.math.reduce_max(heatmap)
 
-    return heatmap.numpy()
 
 
 @app.route('/predict', methods=['POST'])
@@ -90,16 +114,21 @@ def predict():
     plt.imshow(heatmap, cmap='jet', alpha=0.5)  # Overlay the heatmap
     plt.axis('off')
 
-    # Save the heatmap image
-    heatmap_path = 'static/heatmap.png'
+    plt.imshow(binary_image, cmap='gray')  # Display the original image
+    plt.axis('off')
+    plt.savefig('binary_image.png', bbox_inches='tight')  # Save the image to a file
+
+    # Save the heatmap image with a unique filename
+    heatmap_filename = f'heatmap_{uuid.uuid4().hex}.png'
+    heatmap_path = os.path.join(app.static_folder, heatmap_filename)
     plt.savefig(heatmap_path, bbox_inches='tight', pad_inches=0)
 
+    # Return the path of the heatmap so it can be viewed on the webpage
     return jsonify({
         'prediction': predicted_class,
         'confidence_scores': prediction[0].tolist(),
-        'heatmap_url': heatmap_path  # Return the heatmap image path
+        'heatmap_url': f'static/{heatmap_filename}'  # Return the unique heatmap image path
     })
-
 
 # Serve the HTML frontend
 @app.route('/')

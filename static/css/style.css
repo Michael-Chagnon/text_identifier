@@ -16,6 +16,128 @@ body {
     color: #333;
 }
 
+#character-container {
+    position: absolute;
+    top: 100px; /* Adjust as needed */
+    left: 100px; /* Adjust as needed */
+    width: 350px; /* Adjust based on the size of your image */
+    height: auto;
+}
+
+#speech-bubble {
+    position: absolute;
+    bottom: -60px; /* Adjust depending on the image size */
+    left: 0;
+    background-color: #f1f1f1;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    width: 250px;
+    text-align: left;
+    font-size: 14px;
+    color: #333;
+}
+
+/* The little triangle/pointer of the speech bubble */
+#speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 25px;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 10px solid #f1f1f1;
+}
+
+#learn-more-link {
+    color: #3498db;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+#numbuddy-info.modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+#numbuddy-info {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    width: 700px;  /* Control the width */
+    max-width: 80%; /* Adjust responsiveness */
+    height: auto;  /* Automatically adjust the height based on content */
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+    z-index: 9999; /* Ensures it appears on top of everything */
+}
+
+.modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#numbuddy-info .close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    font-size: 18px;
+    color: #aaa;
+}
+
+#numbuddy-info .close:hover {
+    color: #000;
+}
+
+/* Add this for an overlay behind the modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent overlay */
+    z-index: 9998; /* One level below the modal */
+}
+
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    font-size: 18px;
+    color: #aaa;
+}
+
+.close:hover {
+    color: #000;
+}
+
+/* Style for the text inside the speech bubble */
+#bubble-text {
+    margin: 0;
+}
+
+#character {
+    width: 100%;
+    height: auto;
+}
+
+
 h1 {
     font-size: 2.5rem;
     margin-bottom: 1rem;
@@ -90,6 +212,7 @@ button:active {
     padding-bottom: 5px;
     padding-top: 5px;
     border-radius: 8px;
+    background-color: #FFFFFFFF;
 }
 
 .bar {
@@ -160,6 +283,77 @@ button:active {
     font-weight: bold;
     color: #27ae60;
 }
+
+#theme-toggle-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999; /* Ensure it's on top */
+}
+
+.theme-button {
+    background-color: #1abc9c;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.theme-button:hover {
+    background-color: #16a085;
+}
+
+
+/* CSS for the three-dot loading effect */
+.dots {
+    display: inline-block;
+    position: relative;
+    width: 20px;
+    height: 20px;
+  }
+  
+  .dot {
+    position: absolute;
+    top: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: black;
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+  }
+  
+  .dot1 {
+    left: 0;
+    animation: dot1 0.6s infinite;
+  }
+  
+  .dot2 {
+    left: 7px;
+    animation: dot2 0.6s infinite;
+  }
+  
+  .dot3 {
+    left: 14px;
+    animation: dot3 0.6s infinite;
+  }
+  
+  @keyframes dot1 {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes dot2 {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes dot3 {
+    0% { transform: scale(1); }
+    100% { transform: scale(0); }
+  }
+  
 
 
 footer {

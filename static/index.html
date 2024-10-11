@@ -7,6 +7,31 @@
         <title>Draw a Digit</title>
     </head>
     <body>
+        <div id="character-container">
+            <img id="character" src="static/images/heads/happy.png" alt="Character" />
+            
+            <!-- Speech bubble -->
+            <div id="speech-bubble">
+                <p>I am NumBuddy! <a href="#" id="learn-more-link">Click here</a> to learn more about me.</p>
+            </div>
+        </div>
+
+        <div id="numbuddy-info" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span id="close-modal" class="close">&times;</span>
+                <h2>Meet Numbuddy!</h2>
+                <p>Numbuddy is an AI model trained using the MNIST dataset to recognize handwritten numbers. Pulling from thousands of examples, it has learned to accurately predict hand-drawn digits from 0 to 9.</p>
+                <p><b>Some of Numbuddy's features include:</b></p>
+                <ul>
+                    <li>Interactive number recognition – draw your number, and Numbuddy will guess it in real-time.</li>
+                    <li>History tracker – keep a log of your past predictions and drawings for future reference.</li>
+                    <li>Custom responses – watch as Numbuddy reacts with different poses and expressions based on its confidence in its predictions!</li>
+                </ul>
+                <br/>
+                <p>Numbuddy is also great for experimenting with different scenarios and outlier cases. You can test how the model reacts when numbers are drawn ambiguously, such as drawing numbers on top of one another. In such cases, Numbuddy may feel uncertain and often attempts to choose between two or three numbers that appear similar. You can observe this behavior through the prediction confidence bar, where lower confidence indicates that the model is unsure about its choice.  </p>
+            </div>
+        </div>
+               
         <h1>Draw a Digit</h1>
     <canvas id="canvas" width="280" height="280" style="border:1px solid #000;"></canvas>
 
@@ -16,8 +41,11 @@
         <button id="predict">Predict</button>
     </div>
 
-    <p>Predicted Digit: <span id="result"></span></p>
-    <img id="heatmap" src="" alt="Grad-CAM Heatmap" style="display:none; max-width: 280px;" />
+    <p>Predicted Digit: <span id="result"></span><div id="loading-dots" class="dots" style="display: none;">
+        <div class="dot dot1"></div>
+        <div class="dot dot2"></div>
+        <div class="dot dot3"></div>
+    </div>  </p>    
 
     <!-- Header and Chart Section -->
     <div class="confidence-bar" id="confidence-bar">
@@ -81,77 +109,115 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         });
 
-        document.getElementById('predict').addEventListener('click', async () => {
-    const dataUrl = canvas.toDataURL('image/png');
-    const blob = await fetch(dataUrl).then(res => res.blob());
+        function updateCharacterFace(confidence) {
+        const characterImg = document.getElementById('character');
 
-    const formData = new FormData();
-    formData.append('image', blob, 'digit.png');
+        console.log(confidence)
 
-    try {
-        const response = await fetch('/predict', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Error:', errorText);
-            document.getElementById('result').innerText = 'Error predicting digit.';
-            return;
+        if (confidence > 0.9) {
+            characterImg.src = 'static/images/heads/happy.png';  // High confidence face
+        } else if (confidence > 0.8) {
+            characterImg.src = 'static/images/heads/flat.png';    // Moderate confidence face
+        } else {
+            characterImg.src = 'static/images/heads/angry.png';    // Low confidence face
         }
-
-        const result = await response.json();
-        const prediction = result.prediction;
-        const confidenceScores = result.confidence_scores;
-        const heatmapUrl = result.heatmap_url;
-
-        // Update predicted result
-        document.getElementById('result').innerText = prediction;
-
-        // Show the Grad-CAM heatmap
-        const heatmapImg = document.getElementById('heatmap');
-        heatmapImg.src = heatmapUrl;  // Update the heatmap image src
-        heatmapImg.style.display = 'block';
-
-        // Update the confidence bars
-        confidenceScores.forEach((score, index) => {
-            const bar = document.getElementById(`bar-${index}`);
-            bar.style.height = `${Math.max(score * 100, 2)}%`;
-        });
-
-    } catch (error) {
-        console.error('Fetch error:', error);
     }
-});
 
-        function addPredictionToHistory(imageUrl, prediction) {
-            const historyContent = document.getElementById('history-content');
 
-            const historyItem = document.createElement('div');
-            historyItem.className = 'history-item';
+    document.getElementById('learn-more-link').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.getElementById('numbuddy-info').style.display = 'block';
+        const overlay = document.createElement('div');
+        overlay.classList.add('modal-overlay');
+        document.body.appendChild(overlay);  // Add overlay when modal is opened
+    });
 
-            const img = document.createElement('img');
-            img.src = imageUrl;
+    document.getElementById('close-modal').addEventListener('click', function() {
+        document.getElementById('numbuddy-info').style.display = 'none';
+        const overlay = document.querySelector('.modal-overlay');
+        if (overlay) overlay.remove();  // Remove overlay when modal is closed
+    });
 
-            const predictionText = document.createElement('span');
-            predictionText.innerText = `Prediction: ${prediction}`;
 
-            historyItem.appendChild(img);
-            historyItem.appendChild(predictionText);
 
-            historyContent.appendChild(historyItem);
-        }
+    document.getElementById('predict').addEventListener('click', async () => {
+        const characterImg = document.getElementById('character');
+        const loadingDots = document.getElementById('loading-dots');
+        const resultElement = document.getElementById('result');
 
-        function updateConfidenceBars(confidenceScores) {
-            for (let i = 0; i < confidenceScores.length; i++) {
-                const bar = document.getElementById(`bar-${i}`);
-                const confidence = confidenceScores[i] * 100; // Convert to percentage
-                bar.style.height = `${confidence}px`; // Set the height based on confidence
-                bar.innerText = `${confidence.toFixed(2)}%`; // Display percentage with two decimal places
+        // Set character face to thinking when starting the prediction process
+        characterImg.src = 'static/images/heads/flat2.png';
+        resultElement.innerText = ""; // Optional text display
+        loadingDots.style.display = 'inline-block'; // Show the loading dots
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const blob = await fetch(dataUrl).then(res => res.blob());
+
+        const formData = new FormData();
+        formData.append('image', blob, 'digit.png');
+
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error:', errorText);
+                resultElement.innerText = 'Error predicting digit.';
+                loadingDots.style.display = 'none'; // Hide the dots on error
+                return;
             }
-        }
 
+            // Add a delay before showing the result to simulate "thinking"
+            setTimeout(async () => {
+                const result = await response.json();
+                const prediction = result.prediction[0];
+                const confidenceScores = result.confidence_scores;
+
+                // Find the maximum confidence score
+                const maxConfidence = Math.max(...confidenceScores);
+
+                // Update predicted result
+                resultElement.innerText = prediction;
+                loadingDots.style.display = 'none'; // Hide the loading dots after prediction
+
+                // Update the confidence bars
+                confidenceScores.forEach((score, index) => {
+                    const bar = document.getElementById(`bar-${index}`);
+                    bar.style.height = `${Math.max(score * 100, 2)}%`;
+                });
+
+                // Update character face based on the highest confidence
+                updateCharacterFace(maxConfidence);
+
+                // Create history item
+                const historyItem = document.createElement('div');
+                historyItem.classList.add('history-item');
+                
+                // Create image element
+                const img = document.createElement('img');
+                img.src = dataUrl; // Use the drawn image
+                img.alt = `Drawn digit: ${prediction}`;
+                
+                // Create prediction text element
+                const predictionText = document.createElement('span');
+                predictionText.innerText = `Predicted: ${prediction}`;
+
+                // Append image and text to history item
+                historyItem.appendChild(img);
+                historyItem.appendChild(predictionText);
+
+                // Prepend new history item to the top of the list
+                const historyContent = document.getElementById('history-content');
+                historyContent.insertBefore(historyItem, historyContent.firstChild);
+            }, 2000); // Delay for 2 seconds before showing the result
+        } catch (error) {
+            console.error('Fetch error:', error);
+            loadingDots.style.display = 'none'; // Hide the dots on error
+        }
+    });
     </script>
 </body>
 </html>
